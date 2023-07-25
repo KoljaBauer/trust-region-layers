@@ -16,9 +16,9 @@
 
 import torch as ch
 
-from trust_region_projections.models.policy.gaussian_policy_diag import GaussianPolicyDiag
-from trust_region_projections.models.policy.gaussian_policy_full import GaussianPolicyFull
-from trust_region_projections.models.policy.gaussian_policy_sqrt import GaussianPolicySqrt
+from trust_region_projections_step.models.policy.gaussian_policy_diag import GaussianPolicyDiag
+from trust_region_projections_step.models.policy.gaussian_policy_full import GaussianPolicyFull
+from trust_region_projections_step.models.policy.gaussian_policy_sqrt import GaussianPolicySqrt
 
 
 def get_policy_network(policy_type, proj_type, device: ch.device = "cpu", dtype=ch.float32, **kwargs):

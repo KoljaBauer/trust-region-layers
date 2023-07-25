@@ -6,4 +6,3 @@ tensorboardX
 cox
 python-git
 gym
-mujoco-py<2.1,>=2.0

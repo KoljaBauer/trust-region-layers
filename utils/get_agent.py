@@ -18,8 +18,8 @@ import git
 import os
 from cox.store import schema_from_dict
 
-from trust_region_projections.algorithms.pg.pg import PolicyGradient
-from trust_region_projections.utils.custom_store import CustomStore
+from trust_region_projections_step.algorithms.pg.pg import PolicyGradient
+from trust_region_projections_step.utils.custom_store import CustomStore
 
 
 def setup_general_agent(params: dict, save_git: bool = True):

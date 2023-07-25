@@ -18,8 +18,8 @@ import numpy as np
 import torch as ch
 from typing import Tuple, Union
 
-from trust_region_projections.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
-from trust_region_projections.utils.torch_utils import torch_batched_trace
+from trust_region_projections_step.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
+from trust_region_projections_step.utils.torch_utils import torch_batched_trace
 
 
 def mean_distance(policy, mean, mean_other, std_other=None, scale_prec=False):

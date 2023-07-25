@@ -18,7 +18,7 @@ from typing import Sequence
 
 import torch.nn as nn
 
-from trust_region_projections.utils.network_utils import get_activation, get_mlp, initialize_weights
+from trust_region_projections_step.utils.network_utils import get_activation, get_mlp, initialize_weights
 
 
 class VFNet(nn.Module):

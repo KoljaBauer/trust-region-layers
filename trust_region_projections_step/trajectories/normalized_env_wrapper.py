@@ -15,10 +15,13 @@
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import gym
+import fancy_gym
+from functools import partial
 from typing import Union
 
-from trust_region_projections.trajectories.env_normalizer import BaseNormalizer, MovingAvgNormalizer
-from trust_region_projections.trajectories.vector_env import SequentialVectorEnv
+from trust_region_projections_step.trajectories.env_normalizer import BaseNormalizer, MovingAvgNormalizer
+
+from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
 
 
 def make_env(env_id: str, seed: int, rank: int) -> callable:
@@ -46,7 +49,7 @@ class NormalizedEnvWrapper(object):
 
     def __init__(self, env_id: str, n_envs: int = 1, n_test_envs: int = 1, max_episode_length: int = 1000, gamma=0.99,
                  norm_obs: Union[bool, None] = True, clip_obs: Union[float, None] = None,
-                 norm_rewards: Union[bool, None] = True, clip_rewards: Union[float, None] = None, seed: int = 1):
+                 norm_rewards: Union[bool, None] = True, clip_rewards: Union[float, None] = None, seed: int = 1, **kwargs):
         """
         A vectorized gym environment wrapper that normalizes observations and returns.
         Args:
@@ -65,12 +68,17 @@ class NormalizedEnvWrapper(object):
 
         self.max_episode_length = max_episode_length
 
-        self.envs = SequentialVectorEnv([make_env(env_id, seed, i) for i in range(n_envs)],
-                                        max_episode_length=max_episode_length)
+        func_list = [partial(fancy_gym.make, env_id=env_id, seed=seed + i, max_episode_length=max_episode_length,
+                             normalize_obs=norm_obs, **kwargs) for i in range(n_envs)]
+        self.env_fns = func_list
+        self.envs = SubprocVecEnv(func_list)
+
         if n_test_envs:
             # Create test envs here to leverage the moving average normalization for testing envs.
-            self.envs_test = SequentialVectorEnv([make_env(env_id, seed + n_envs, i) for i in range(n_test_envs)],
-                                                 max_episode_length=max_episode_length)
+            func_list = [partial(fancy_gym.make, env_id=env_id, seed=seed + n_envs + i,
+                                 max_episode_length=max_episode_length, normalize_obs=norm_obs,
+                                 **kwargs) for i in range(n_test_envs)]
+            self.envs_test = SubprocVecEnv(func_list)
 
         self.norm_obs = norm_obs
         self.clip_obs = clip_obs
@@ -81,10 +89,11 @@ class NormalizedEnvWrapper(object):
         # Support for state normalization or using time as a feature
 
         self.state_normalizer = BaseNormalizer()
-        if self.norm_obs:
-            # set gamma to 0 because we do not want to normalize based on return trajectory
-            self.state_normalizer = MovingAvgNormalizer(self.state_normalizer, shape=self.observation_space.shape,
-                                                        center=True, scale=True, gamma=0., clip=clip_obs)
+        # We normalize with a Normalization wrapper
+        #if self.norm_obs:
+        #    # set gamma to 0 because we do not want to normalize based on return trajectory
+        #    self.state_normalizer = MovingAvgNormalizer(self.state_normalizer, shape=self.observation_space.shape,
+        #                                                center=True, scale=True, gamma=0., clip=clip_obs)
         ################################################################################################################
         # Support for return normalization
         self.reward_normalizer = BaseNormalizer()

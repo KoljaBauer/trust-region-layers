@@ -15,16 +15,17 @@
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import collections
+import itertools
 import logging
 import numpy as np
 import torch as ch
 from typing import Union
 
-from trust_region_projections.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
-from trust_region_projections.models.value.vf_net import VFNet
-from trust_region_projections.trajectories.dataclass import TrajectoryOnPolicyRaw
-from trust_region_projections.trajectories.normalized_env_wrapper import NormalizedEnvWrapper
-from trust_region_projections.utils.torch_utils import get_numpy, tensorize, to_gpu
+from trust_region_projections_step.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
+from trust_region_projections_step.models.value.vf_net import VFNet
+from trust_region_projections_step.trajectories.dataclass import TrajectoryOnPolicyRaw
+from trust_region_projections_step.trajectories.normalized_env_wrapper import NormalizedEnvWrapper
+from trust_region_projections_step.utils.torch_utils import get_numpy, tensorize, to_gpu
 
 logger = logging.getLogger("env_runner")
 
@@ -33,7 +34,7 @@ class TrajectorySampler(object):
     def __init__(self, env_id: str, n_envs: int = 1, n_test_envs=1, max_episode_length=1000,
                  discount_factor: float = 0.99, norm_obs: Union[bool, None] = bool, clip_obs: Union[float, None] = 10.0,
                  norm_rewards: Union[bool, None] = True, clip_rewards: Union[float, None] = 10.0, cpu: bool = True,
-                 dtype=ch.float32, seed: int = 1):
+                 dtype=ch.float32, seed: int = 1, **kwargs):
 
         """
         Instance that takes care of generating Trajectory samples.
@@ -67,7 +68,7 @@ class TrajectorySampler(object):
 
         self.envs = NormalizedEnvWrapper(env_id, n_envs, n_test_envs, max_episode_length=max_episode_length,
                                          gamma=discount_factor, norm_obs=norm_obs, clip_obs=clip_obs,
-                                         norm_rewards=norm_rewards, clip_rewards=clip_rewards, seed=seed)
+                                         norm_rewards=norm_rewards, clip_rewards=clip_rewards, seed=seed, **kwargs)
 
     def run(self, rollout_steps, policy: AbstractGaussianPolicy, vf_model: Union[VFNet, None] = None,
             reset_envs: bool = False) -> TrajectoryOnPolicyRaw:
@@ -110,20 +111,32 @@ class TrajectorySampler(object):
             # Given observations, get action value and lopacs
             pds = policy(obs, train=False)
             actions = policy.sample(pds)
+            print(f"actions: {actions}")
             squashed_actions = policy.squash(actions)
 
             mb_obs[i] = obs
             mb_actions[i] = squashed_actions
 
-            obs, rewards, dones, infos = self.envs.step(squashed_actions.cpu().numpy())
+            obs, rewards, dones, infos_tuple = self.envs.step(squashed_actions.cpu().numpy())
             obs = tensorize(obs, self.cpu, self.dtype)
+
+            infos = {}
+
+            infos_horizon_list = [info['horizon'] for info in infos_tuple]
+            infos_horizon_list_flattened = list(itertools.chain(*infos_horizon_list))
+            infos["horizon"] = ch.tensor(infos_horizon_list_flattened)
 
             mb_means[i] = pds[0]
             mb_stds[i] = pds[1]
             mb_time_limit_dones[i] = tensorize(infos["horizon"], self.cpu, ch.bool)
 
-            if infos.get("done"):
-                ep_infos.extend(infos.get("done"))
+            infos_done_list = [info['done'] for info in infos_tuple]
+            infos_done_flattened = list(itertools.chain(*infos_done_list))
+
+            if len(infos_done_flattened) > 0:
+                ep_infos.extend(infos_done_flattened)
+            #if infos.get("done"): # TODO: Why do we need this and how to adapt this to SubprocVecEnv?
+            #    ep_infos.extend(infos.get("done"))
 
             mb_rewards[i] = tensorize(rewards, self.cpu, self.dtype)
             mb_dones[i] = tensorize(dones, self.cpu, ch.bool)
@@ -134,6 +147,8 @@ class TrajectorySampler(object):
         # compute all logpacs and value estimates at once --> less computation
         mb_logpacs = policy.log_probability((mb_means, mb_stds), mb_actions)
         mb_values = (vf_model if vf_model else policy.get_value)(mb_obs, train=False)
+
+        mb_values = ch.squeeze(mb_values, dim=2)  # TODO: Do this here or in Policy?
 
         out = (mb_obs[:-1], mb_actions, mb_logpacs, mb_rewards, mb_values,
                mb_dones, mb_time_limit_dones, mb_means, mb_stds)

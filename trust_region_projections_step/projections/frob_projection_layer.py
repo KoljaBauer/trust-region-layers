@@ -17,9 +17,9 @@
 import torch as ch
 from typing import Tuple
 
-from trust_region_projections.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
-from trust_region_projections.projections.base_projection_layer import BaseProjectionLayer, mean_projection
-from trust_region_projections.utils.projection_utils import gaussian_frobenius
+from trust_region_projections_step.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
+from trust_region_projections_step.projections.base_projection_layer import BaseProjectionLayer, mean_projection
+from trust_region_projections_step.utils.projection_utils import gaussian_frobenius
 
 
 class FrobeniusProjectionLayer(BaseProjectionLayer):

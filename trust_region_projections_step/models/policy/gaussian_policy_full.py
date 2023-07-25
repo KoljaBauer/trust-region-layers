@@ -20,10 +20,10 @@ import numpy as np
 import torch as ch
 import torch.nn as nn
 
-from trust_region_projections.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
-from trust_region_projections.models.value.vf_net import VFNet
-from trust_region_projections.utils.network_utils import initialize_weights
-from trust_region_projections.utils.torch_utils import diag_bijector, fill_triangular, fill_triangular_inverse
+from trust_region_projections_step.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
+from trust_region_projections_step.models.value.vf_net import VFNet
+from trust_region_projections_step.utils.network_utils import initialize_weights
+from trust_region_projections_step.utils.torch_utils import diag_bijector, fill_triangular, fill_triangular_inverse
 
 
 class GaussianPolicyFull(AbstractGaussianPolicy):

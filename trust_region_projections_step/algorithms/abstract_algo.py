@@ -19,10 +19,10 @@ import logging
 import torch as ch
 from typing import Tuple, Union
 
-from trust_region_projections.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
-from trust_region_projections.projections.base_projection_layer import BaseProjectionLayer
-from trust_region_projections.trajectories.trajectory_sampler import TrajectorySampler
-from trust_region_projections.utils.custom_store import CustomStore
+from trust_region_projections_step.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
+from trust_region_projections_step.projections.base_projection_layer import BaseProjectionLayer
+from trust_region_projections_step.trajectories.trajectory_sampler import TrajectorySampler
+from trust_region_projections_step.utils.custom_store import CustomStore
 
 
 class AbstractAlgorithm(abc.ABC):

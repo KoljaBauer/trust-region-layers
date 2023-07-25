@@ -24,17 +24,17 @@ import gym
 import numpy as np
 import torch as ch
 
-from trust_region_projections.algorithms.abstract_algo import AbstractAlgorithm
-from trust_region_projections.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
-from trust_region_projections.models.policy.policy_factory import get_policy_network
-from trust_region_projections.models.value.vf_net import VFNet
-from trust_region_projections.projections.base_projection_layer import BaseProjectionLayer
-from trust_region_projections.projections.projection_factory import get_projection_layer
-from trust_region_projections.trajectories.dataclass import TrajectoryOnPolicy
-from trust_region_projections.trajectories.trajectory_sampler import TrajectorySampler
-from trust_region_projections.utils.custom_store import CustomStore
-from trust_region_projections.utils.network_utils import get_lr_schedule, get_optimizer
-from trust_region_projections.utils.torch_utils import flatten_batch, generate_minibatches, get_numpy, \
+from trust_region_projections_step.algorithms.abstract_algo import AbstractAlgorithm
+from trust_region_projections_step.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
+from trust_region_projections_step.models.policy.policy_factory import get_policy_network
+from trust_region_projections_step.models.value.vf_net import VFNet
+from trust_region_projections_step.projections.base_projection_layer import BaseProjectionLayer
+from trust_region_projections_step.projections.projection_factory import get_projection_layer
+from trust_region_projections_step.trajectories.dataclass import TrajectoryOnPolicy
+from trust_region_projections_step.trajectories.trajectory_sampler import TrajectorySampler
+from trust_region_projections_step.utils.custom_store import CustomStore
+from trust_region_projections_step.utils.network_utils import get_lr_schedule, get_optimizer
+from trust_region_projections_step.utils.torch_utils import flatten_batch, generate_minibatches, get_numpy, \
     select_batch, tensorize
 
 logging.basicConfig(level=logging.INFO)
@@ -551,13 +551,20 @@ class PolicyGradient(AbstractAlgorithm):
             'iteration': iteration,
             'policy': self.policy.state_dict(),
             'optimizer': self.optimizer.state_dict(),
-            'env_runner': self.env_runner
+            # 'env_runner': self.env_runner TODO: Comment back in
+            'env_runner.envs.env_fns': self.env_runner.envs.env_fns
         }
 
         if self.vf_model:
             checkpoint_dict.update({'vf_model': self.vf_model.state_dict(),
                                     'optimizer_vf': self.optimizer_vf.state_dict()
                                     })
+
+
+        # TODO: Delete following line, solve this differently
+        if 'checkpoints' not in list(self.store.keys):
+            self.store.add_table_like_example('checkpoints', checkpoint_dict)
+
         self.store['checkpoints'].append_row(checkpoint_dict)
 
     @staticmethod

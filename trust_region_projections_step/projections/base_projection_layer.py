@@ -19,10 +19,10 @@ import math
 import torch as ch
 from typing import Tuple, Union
 
-from trust_region_projections.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
-from trust_region_projections.utils.network_utils import get_optimizer
-from trust_region_projections.utils.projection_utils import gaussian_kl, get_entropy_schedule
-from trust_region_projections.utils.torch_utils import generate_minibatches, select_batch, tensorize
+from trust_region_projections_step.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
+from trust_region_projections_step.utils.network_utils import get_optimizer
+from trust_region_projections_step.utils.projection_utils import gaussian_kl, get_entropy_schedule
+from trust_region_projections_step.utils.torch_utils import generate_minibatches, select_batch, tensorize
 
 
 def entropy_inequality_projection(policy: AbstractGaussianPolicy, p: Tuple[ch.Tensor, ch.Tensor],

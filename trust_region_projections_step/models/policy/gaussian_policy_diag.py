@@ -19,8 +19,8 @@ import torch as ch
 import torch.nn as nn
 from typing import Tuple
 
-from trust_region_projections.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
-from trust_region_projections.utils.network_utils import initialize_weights
+from trust_region_projections_step.models.policy.abstract_gaussian_policy import AbstractGaussianPolicy
+from trust_region_projections_step.utils.network_utils import initialize_weights
 
 
 class GaussianPolicyDiag(AbstractGaussianPolicy):

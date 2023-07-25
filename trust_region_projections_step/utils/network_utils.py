@@ -36,7 +36,7 @@ def initialize_weights(model: nn.Module, initialization_type: str, scale: float 
     for p in model.parameters():
         if initialization_type == "normal":
             if len(p.data.shape) >= 2:
-                p.data.normal_(init_w)  # 0.01
+                p.data.normal_(init_w, scale)  # 0.01
             else:
                 p.data.zero_()
         elif initialization_type == "uniform":

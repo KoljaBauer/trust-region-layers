@@ -22,8 +22,8 @@ from multiprocessing import JoinableQueue, Process
 
 import os
 
-from trust_region_projections.algorithms.pg.pg import PolicyGradient
-from trust_region_projections.utils.custom_store import CustomStore
+from trust_region_projections_step.algorithms.pg.pg import PolicyGradient
+from trust_region_projections_step.utils.custom_store import CustomStore
 from utils.get_agent import get_new_ppo_agent
 
 

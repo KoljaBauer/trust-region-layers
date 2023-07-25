@@ -20,16 +20,17 @@ from typing import Sequence, Tuple
 import torch as ch
 import torch.nn as nn
 
-from trust_region_projections.models.value.vf_net import VFNet
-from trust_region_projections.utils.network_utils import get_activation, get_mlp, initialize_weights
-from trust_region_projections.utils.torch_utils import inverse_softplus
+from trust_region_projections_step.models.value.vf_net import VFNet
+from trust_region_projections_step.utils.network_utils import get_activation, get_mlp, initialize_weights
+from trust_region_projections_step.utils.torch_utils import inverse_softplus
 
 
 class AbstractGaussianPolicy(nn.Module, ABC):
 
     def __init__(self, obs_dim: int, action_dim: int, init: str = "orthogonal", hidden_sizes: Sequence[int] = (64, 64),
                  activation: str = "tanh", contextual_std: bool = False, init_std: float = 1.,
-                 minimal_std: float = 1e-5, share_weights: bool = False, vf_model: VFNet = None):
+                 minimal_std: float = 1e-5, share_weights: bool = False, vf_model: VFNet = None,
+                 init_mean: float = 0.):
         """
         Abstract Method defining a Gaussian policy structure.
         Args:
@@ -66,7 +67,7 @@ class AbstractGaussianPolicy(nn.Module, ABC):
         # This shift is applied to the Parameter/cov NN output before applying the transformation
         # and gives hence the wanted initial cov
         self._pre_activation_shift = self._get_preactivation_shift(self.init_std, minimal_std)
-        self._mean = self._get_mean(action_dim, prev_size, init)
+        self._mean = self._get_mean(action_dim, prev_size, init, init_mean=init_mean)
         self._pre_std = self._get_std(contextual_std, action_dim, prev_size, init)
 
         self.vf_model = vf_model
@@ -82,7 +83,7 @@ class AbstractGaussianPolicy(nn.Module, ABC):
     def get_value(self, x, train=True):
         if self.share_weights:
             self.train(train)
-            for affine in self.affine_layers:
+            for affine in self._affine_layers: # TODO: Why affine_layers and not _affine_layers
                 x = self.activation(affine(x))
             value = self.final_value(x)
         elif self.vf_model:
@@ -102,7 +103,7 @@ class AbstractGaussianPolicy(nn.Module, ABC):
         """
         return x
 
-    def _get_mean(self, action_dim, prev_size=None, init=None, scale=0.01):
+    def _get_mean(self, action_dim, prev_size=None, init=None, scale=0.01, init_mean: float = 1e-3):
         """
         Constructor method for mean prediction.
         Args:
@@ -115,7 +116,7 @@ class AbstractGaussianPolicy(nn.Module, ABC):
             Mean parametrization.
         """
         mean = nn.Linear(prev_size, action_dim)
-        initialize_weights(mean, init, scale=scale)
+        initialize_weights(mean, init, init_w=init_mean, scale=scale)
         return mean
 
     # @final
