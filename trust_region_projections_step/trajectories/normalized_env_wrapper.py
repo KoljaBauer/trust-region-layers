@@ -71,7 +71,10 @@ class NormalizedEnvWrapper(object):
         func_list = [partial(fancy_gym.make, env_id=env_id, seed=seed + i, max_episode_length=max_episode_length,
                              normalize_obs=norm_obs, **kwargs) for i in range(n_envs)]
         self.env_fns = func_list
-        self.envs = SubprocVecEnv(func_list)
+        if n_envs:
+            self.envs = SubprocVecEnv(func_list)
+        else:
+            self.envs = None
 
         if n_test_envs:
             # Create test envs here to leverage the moving average normalization for testing envs.
@@ -104,7 +107,8 @@ class NormalizedEnvWrapper(object):
         ################################################################################################################
 
         # save last of in env to return later to
-        self.last_obs = self.envs.reset()
+        if n_envs:
+            self.last_obs = self.envs.reset()
 
     def step(self, actions):
 
@@ -144,8 +148,14 @@ class NormalizedEnvWrapper(object):
 
     @property
     def observation_space(self):
-        return self.envs.observation_space
+        if self.envs is not None:
+            return self.envs.observation_space
+        else:
+            return  self.envs_test.observation_space
 
     @property
     def action_space(self):
-        return self.envs.action_space
+        if self.envs is not None:
+            return self.envs.action_space
+        else:
+            return  self.envs_test.action_space

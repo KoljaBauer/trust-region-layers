@@ -66,6 +66,9 @@ class TrajectorySampler(object):
         self.total_rewards = collections.deque(maxlen=100)
         self.total_steps = collections.deque(maxlen=100)
 
+        self.prev_train_step_total_episodes = 0
+        self.prev_train_step_successful_episodes = 0
+
         self.envs = NormalizedEnvWrapper(env_id, n_envs, n_test_envs, max_episode_length=max_episode_length,
                                          gamma=discount_factor, norm_obs=norm_obs, clip_obs=clip_obs,
                                          norm_rewards=norm_rewards, clip_rewards=clip_rewards, seed=seed, **kwargs)
@@ -106,12 +109,14 @@ class TrajectorySampler(object):
         obs = self.envs.reset() if reset_envs else self.envs.last_obs
         obs = tensorize(obs, self.cpu, self.dtype)
 
+        self.prev_train_step_total_episodes = 0
+        self.prev_train_step_successful_episodes = 0
+
         # For n in range number of steps
         for i in range(rollout_steps):
             # Given observations, get action value and lopacs
             pds = policy(obs, train=False)
             actions = policy.sample(pds)
-            print(f"actions: {actions}")
             squashed_actions = policy.squash(actions)
 
             mb_obs[i] = obs
@@ -133,10 +138,15 @@ class TrajectorySampler(object):
             infos_done_list = [info['done'] for info in infos_tuple]
             infos_done_flattened = list(itertools.chain(*infos_done_list))
 
+            for j, info in enumerate(infos_tuple):
+                if dones[j]:
+                    if info['info']['successful_task'][-1] == True:
+                        self.prev_train_step_successful_episodes += 1
+
+
             if len(infos_done_flattened) > 0:
                 ep_infos.extend(infos_done_flattened)
-            #if infos.get("done"): # TODO: Why do we need this and how to adapt this to SubprocVecEnv?
-            #    ep_infos.extend(infos.get("done"))
+                self.prev_train_step_total_episodes += len(infos_done_flattened)
 
             mb_rewards[i] = tensorize(rewards, self.cpu, self.dtype)
             mb_dones[i] = tensorize(dones, self.cpu, ch.bool)
@@ -181,6 +191,9 @@ class TrajectorySampler(object):
         ep_rewards = np.zeros((n_runs, self.n_test_envs,))
         ep_lengths = np.zeros((n_runs, self.n_test_envs,))
 
+        successful_episodes = 0
+        total_epsiodes = 0
+
         for i in range(n_runs):
             not_dones = np.ones((self.n_test_envs,), np.bool)
             obs = self.envs.reset_test()
@@ -195,15 +208,29 @@ class TrajectorySampler(object):
                 obs, rews, dones, infos = self.envs.step_test(get_numpy(actions))
                 ep_rewards[i, not_dones] += rews[not_dones]
 
+                for j, info in enumerate(infos):
+                    if dones[j]:
+                        total_epsiodes += 1
+                        if info['info']['successful_task'][-1] == True:
+                            successful_episodes += 1
+
                 # only set to False when env has never terminated before, otherwise we favor earlier terminating envs.
                 not_dones = np.logical_and(~dones, not_dones)
 
-        return self.get_reward_dict(ep_rewards, ep_lengths)
+        rew_dict = self.get_reward_dict(ep_rewards, ep_lengths)
+        success_rate = successful_episodes / total_epsiodes
+        rew_dict['success_rate'] = success_rate
+        return rew_dict
+
 
     def get_exploration_performance(self):
         ep_reward = np.array(self.total_rewards)
         ep_length = np.array(self.total_steps)
-        return self.get_reward_dict(ep_reward, ep_length)
+        rew_dict =  self.get_reward_dict(ep_reward, ep_length)
+        success_rate = self.prev_train_step_successful_episodes / self.prev_train_step_total_episodes
+        rew_dict['success_rate'] = success_rate
+        return rew_dict
+
 
     @staticmethod
     def get_reward_dict(ep_reward, ep_length):
