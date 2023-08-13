@@ -107,6 +107,7 @@ class AbstractAlgorithm(abc.ABC):
             'step_reward': float,
             'length': float,
             'length_std': float,
+            'success_rate': float,
         }
         self.store.add_table('exploration_reward', reward_schema)
         self.store.add_table('evaluation_reward', reward_schema)
