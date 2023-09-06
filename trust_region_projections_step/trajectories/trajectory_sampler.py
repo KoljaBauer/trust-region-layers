@@ -60,6 +60,7 @@ class TrajectorySampler(object):
         self.dtype = dtype
         self.cpu = cpu
         self.n_envs = n_envs
+        self.n_test_envs = n_envs # test and train envs are identical in our case
 
         self.total_rewards = collections.deque(maxlen=100)
         self.total_steps = collections.deque(maxlen=100)
