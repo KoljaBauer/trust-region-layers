@@ -55,7 +55,6 @@ class NormalizedEnvWrapper(object):
         Args:
            env_id: ID of training env
            n_envs: Number of parallel envs to run for more efficient sampling.
-           n_test_envs: Number of environments to use during testing of the current policy.
            max_episode_length: Sets env dones flag to True after n steps. (only necessary if env does not have
                     a time limit).
            gamma: Discount factor for optional reward normalization.
@@ -71,17 +70,8 @@ class NormalizedEnvWrapper(object):
         func_list = [partial(fancy_gym.make, env_id=env_id, seed=seed + i, max_episode_length=max_episode_length,
                              normalize_obs=norm_obs, **kwargs) for i in range(n_envs)]
         self.env_fns = func_list
-        if n_envs:
-            self.envs = SubprocVecEnv(func_list)
-        else:
-            self.envs = None
-
-        if n_test_envs:
-            # Create test envs here to leverage the moving average normalization for testing envs.
-            func_list = [partial(fancy_gym.make, env_id=env_id, seed=seed + n_envs + i,
-                                 max_episode_length=max_episode_length, normalize_obs=norm_obs,
-                                 **kwargs) for i in range(n_test_envs)]
-            self.envs_test = SubprocVecEnv(func_list)
+        self.envs = SubprocVecEnv(func_list)
+        self.envs_test = self.envs # test and train envs are identical in our case
 
         self.norm_obs = norm_obs
         self.clip_obs = clip_obs

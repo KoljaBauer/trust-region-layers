@@ -43,7 +43,6 @@ class TrajectorySampler(object):
            n_envs: Number of parallel envs to run for more efficient sampling.
            max_episode_length: Sets env dones flag to True after n steps. (only necessary if env does not have
                     a time limit).
-           n_test_envs: Number of environments to use during testing of the current policy.
            discount_factor: Discount factor for optional reward normalization.
            norm_obs: If true, keeps moving mean and variance of observations and normalizes new observations.
            clip_obs: Clipping value for normalized observations.
@@ -61,7 +60,6 @@ class TrajectorySampler(object):
         self.dtype = dtype
         self.cpu = cpu
         self.n_envs = n_envs
-        self.n_test_envs = n_test_envs
 
         self.total_rewards = collections.deque(maxlen=100)
         self.total_steps = collections.deque(maxlen=100)
@@ -69,7 +67,7 @@ class TrajectorySampler(object):
         self.prev_train_step_total_episodes = 0
         self.prev_train_step_successful_episodes = 0
 
-        self.envs = NormalizedEnvWrapper(env_id, n_envs, n_test_envs, max_episode_length=max_episode_length,
+        self.envs = NormalizedEnvWrapper(env_id, n_envs, max_episode_length=max_episode_length,
                                          gamma=discount_factor, norm_obs=norm_obs, clip_obs=clip_obs,
                                          norm_rewards=norm_rewards, clip_rewards=clip_rewards, seed=seed, **kwargs)
 
