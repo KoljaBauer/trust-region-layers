@@ -37,6 +37,8 @@ from trust_region_projections_step.utils.network_utils import get_lr_schedule, g
 from trust_region_projections_step.utils.torch_utils import flatten_batch, generate_minibatches, get_numpy, \
     select_batch, tensorize
 
+import time
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -320,6 +322,14 @@ class PolicyGradient(AbstractAlgorithm):
         if self.projection.initial_entropy is None:
             self.projection.initial_entropy = self.policy.entropy(q).mean()
 
+        import time
+        total_backward_compute_time = 0
+        total_optimizer_compute_time = 0
+        total_forward_pass_time = 0
+        total_value_func_compute_time = 0
+
+        
+
         for _ in range(self.epochs):
             batch_indices = generate_minibatches(obs.shape[0], self.n_minibatches)
 
@@ -329,8 +339,20 @@ class PolicyGradient(AbstractAlgorithm):
                 b_obs, b_actions, b_old_logpacs, b_advantages, b_old_mean, b_old_std = batch
                 b_q = (b_old_mean, b_old_std)
 
-                p = self.policy(b_obs)
+                forward_start = time.time()
+
+                # If we are sharing weights, take the value step simultaneously
+                if self.vf_coeff > 0 and not self.vf_model:
+                    p, vs = self.policy.compute_action_and_value(b_obs)
+                else:
+                    p = self.policy(b_obs)
+                    vs = self.policy.get_value(b_obs)
+
+                #p = self.policy(b_obs)
                 proj_p = self.projection(self.policy, p, b_q, self._global_steps)
+
+                forward_end = time.time()
+                total_forward_pass_time += (forward_end - forward_start)
 
                 new_logpacs = self.policy.log_probability(proj_p, b_actions)
 
@@ -346,25 +368,64 @@ class PolicyGradient(AbstractAlgorithm):
                 # Total loss
                 loss = surrogate_loss + entropy_loss + trust_region_loss
 
+                value_start = time.time()
+
                 # If we are sharing weights, take the value step simultaneously
                 if self.vf_coeff > 0 and not self.vf_model:
                     # if no vf model is present, the model is part of the policy, therefore has to be trained jointly
                     batch_vf = select_batch(indices, returns, dataset.values)
-                    vs = self.policy.get_value(b_obs)
+                    #vs = self.policy.get_value(b_obs)
                     vf_loss = self.value_loss(vs, *batch_vf)  # b_returns, b_old_values)
                     loss += self.vf_coeff * vf_loss
                     vf_losses += vf_loss.detach()
 
+                value_end = time.time()
+                total_value_func_compute_time += (value_end - value_start)
+
+                from copy import deepcopy
+                frozen_weights_old = {}
+                non_frozen_weights_old = {}
+
+                for name, weight in self.policy.named_parameters(recurse=True):
+                    if weight.requires_grad:
+                        non_frozen_weights_old[name] = deepcopy(weight)
+                    else:
+                        frozen_weights_old[name] = deepcopy(weight)
+
+                
                 self.optimizer.zero_grad()
+                backward_start = time.time()
                 loss.backward()
+                backward_end = time.time()
+                total_backward_compute_time += (backward_end - backward_start)
                 if self.max_grad_norm > 0:
                     ch.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+                optimizer_start = time.time()
                 self.optimizer.step()
+                optimizer_end = time.time()
+                total_optimizer_compute_time += (optimizer_end - optimizer_start)
+
+                frozen_weights_new = {}
+                non_frozen_weights_new = {}
+
+                for name, weight in self.policy.named_parameters(recurse=True):
+                    if weight.requires_grad:
+                        non_frozen_weights_new[name] = deepcopy(weight)
+                    else:
+                        frozen_weights_new[name] = deepcopy(weight)
+
+                for name in frozen_weights_old.keys():
+                    assert ch.equal(frozen_weights_old[name], frozen_weights_new[name])
 
                 surrogates += surrogate_loss.detach()
                 trust_region_losses += trust_region_loss.detach()
                 entropy_losses += entropy_loss.detach()
                 losses += loss.detach()
+
+        print(f"total_backward_compute_time: {total_backward_compute_time} seconds")
+        print(f"total_optimizer_compute_time: {total_optimizer_compute_time} seconds")
+        print(f"total_forward_pass_time: {total_forward_pass_time} seconds")
+        print(f"total_value_func_compute_time: {total_value_func_compute_time} seconds")
 
         steps = self.epochs * (math.ceil(obs.shape[0] / self.n_minibatches))
         loss_dict = {"loss": (losses / steps).detach(),
@@ -452,14 +513,20 @@ class PolicyGradient(AbstractAlgorithm):
         self._global_steps += 1
 
         loss_dict = {}
+        start_sampling = time.time()
         dataset = self.sample()
+        end_sampling = time.time()
+        print(f"Sampling took {end_sampling - start_sampling} seconds!")
 
         if self.vf_model:
             # Train value network separately
             loss_dict.update(self.value_step(dataset))
 
+        start_policy_step = time.time()
         # Policy optimization step or in case the network shares weights/is trained jointly also value update
         loss_dict.update(self.policy_step(dataset))
+        end_policy_step = time.time()
+        print(f"Policy step took {end_policy_step - start_policy_step} seconds!")
 
         # PAPI projection after the policy updates with PPO.
         if self.projection.proj_type == "papi":

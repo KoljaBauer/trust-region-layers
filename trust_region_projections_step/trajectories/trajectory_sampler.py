@@ -31,7 +31,7 @@ logger = logging.getLogger("env_runner")
 
 
 class TrajectorySampler(object):
-    def __init__(self, env_id: str, n_envs: int = 1, n_test_envs=1, max_episode_length=1000,
+    def __init__(self, env_id: str, n_envs: int = 1, max_episode_length=1000,
                  discount_factor: float = 0.99, norm_obs: Union[bool, None] = bool, clip_obs: Union[float, None] = 10.0,
                  norm_rewards: Union[bool, None] = True, clip_rewards: Union[float, None] = 10.0, cpu: bool = True,
                  dtype=ch.float32, seed: int = 1, **kwargs):
