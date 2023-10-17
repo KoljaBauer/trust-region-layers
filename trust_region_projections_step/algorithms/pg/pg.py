@@ -342,7 +342,8 @@ class PolicyGradient(AbstractAlgorithm):
                 forward_start = time.time()
 
                 # If we are sharing weights, take the value step simultaneously
-                if self.vf_coeff > 0 and not self.vf_model:
+                compute_action_and_value = getattr(self, "compute_action_and_value", None)
+                if self.vf_coeff > 0 and not self.vf_model and callable(compute_action_and_value):
                     p, vs = self.policy.compute_action_and_value(b_obs)
                 else:
                     p = self.policy(b_obs)
